@@ -22,7 +22,7 @@ require_once __DIR__.'/../vendor/composer/autoload.php';
 /**
  * Auditer for CSV imports.
  *
- * @author     Mike Cantelon <mike@artefactual.com>
+ * @author  Mike Cantelon <mike@artefactual.com>
  */
 class CsvImportAuditer
 {
@@ -33,7 +33,6 @@ class CsvImportAuditer
     protected $errorLogHandle;
     protected $sourceName;
     protected $filename;
-    protected $idColumnName;
     protected $ormClasses;
     protected $reader;
     protected $rowsAudited = 0;
@@ -43,7 +42,8 @@ class CsvImportAuditer
     // Default options
     protected $options = [
         'errorLog' => null,
-        'progressFrequency' => 1
+        'progressFrequency' => 1,
+        'idColumnName' => 'legacyId'
     ];
 
     //
@@ -67,7 +67,7 @@ class CsvImportAuditer
         $this->context = $context;
         $this->dbcon = $dbcon;
 
-        $this->setOptions($options);
+        $this->setOptions(array_merge($this->options, $options));
     }
 
     public function __get($name)
@@ -236,9 +236,7 @@ class CsvImportAuditer
     public function processRow($data)
     {
         // Determine column name to check
-        $idColumnName = (!empty($this->getOption('idColumnName')))
-            ? $this->getOption('idColumnName')
-            : 'legacyId';
+        $idColumnName = $this->getOption('idColumnName');
 
         // Throw error if not ID value is found
         if (empty($data[$idColumnName])) {
@@ -248,7 +246,7 @@ class CsvImportAuditer
         // Attempt to fetch keymap entry corresponding to source ID
         $sourceId = $data[$idColumnName];
 
-        if (null === $targetId = $this->getTargetId($this->sourceName, $sourceId))
+        if (false === $this->ormClasses['keymap']::getTargetId($this->sourceName, $sourceId))
         {
             $this->missingIds[$sourceId] = $this->rowsAudited + 1;
         }
@@ -281,23 +279,14 @@ class CsvImportAuditer
         $saveTimer->add();
     }
 
+    public function getMissingIds()
+    {
+        return $this->missingIds;
+    }
+
     //
     // Protected methods
     //
-
-    protected function getTargetId($sourceName, $sourceId)
-    {
-        $sql = "SELECT target_id FROM keymap WHERE source_name=? AND target_name=? AND source_id=?";
-
-        $statement = QubitFlatfileImport::sqlQuery($sql, [$sourceName, "information_object", $sourceId]);
-
-        $result = $statement->fetch();
-
-        if (!empty($result))
-        {
-            return $result['target_id'];
-        }
-    }
 
     protected function updateInfoObjRelations($physobj, $informationObjectIds)
     {

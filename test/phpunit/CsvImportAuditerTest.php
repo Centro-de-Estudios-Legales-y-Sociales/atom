@@ -85,7 +85,8 @@ class CsvImportAuditerTest extends \PHPUnit\Framework\TestCase
     {
         $defaultOptions = [
             'errorLog' => null,
-            'progressFrequency' => 1
+            'progressFrequency' => 1,
+            'idColumnName' => 'legacyId'
         ];
 
         $inputs = [
@@ -101,7 +102,8 @@ class CsvImportAuditerTest extends \PHPUnit\Framework\TestCase
             $defaultOptions,
             [
                 'errorLog' => null,
-                'progressFrequency' => 2
+                'progressFrequency' => 2,
+                'idColumnName' => 'legacyId'
             ],
         ];
 
@@ -112,75 +114,42 @@ class CsvImportAuditerTest extends \PHPUnit\Framework\TestCase
         ];
     }
 
-    /*
     public function processRowProvider()
     {
         $inputs = [
             // Leading and trailing whitespace is intentional
             [
-                'legacyId' => 'B10101 ',
-                'name' => ' DJ001',
-                'type' => 'Boîte Hollinger ',
-                'location' => ' Voûte, étagère 0074',
-                'culture' => 'fr ',
-                'descriptionSlugs' => ' test-fonds-1 | test-collection ',
+                'source' => 'test_import',
+                'row' => [
+                  'legacyId' => '123',
+                  'title' => 'Row with no issues',
+                ],
             ],
             [
-                'legacyId' => ' ',
-                'name' => 'DJ002 ',
-                'type' => 'Folder',
-                'location' => 'Aisle 25, Shelf D',
-                // Test case insensitivity (should match 'en')
-                'culture' => 'EN',
-                // Slugs are case sensitive
-                'descriptionSlugs' => '|Mixed-Case-Fonds|no-match|',
+                'source' => 'test_import',
+                'row' => [
+                  'legacyId' => '124',
+                  'title' => 'Row with new source ID',
+                ],
             ],
             [
-                'name' => 'DJ003',
-                'location' => 'Aisle 11, Shelf J',
-            ],
-            [
-                'legacyId' => '',
-                'name' => 'DJ004',
-                'type' => '',
-                'location' => '',
-                'culture' => '',
-                'descriptionSlugs' => '',
+                'source' => 'bad_source',
+                'row' => [
+                  'legacyId' => '123',
+                  'title' => 'Row with bad source name',
+                ],
             ],
         ];
 
         $expectedResults = [
             [
-                'legacyId' => 'B10101',
-                'name' => 'DJ001',
-                'typeId' => 1,
-                'location' => 'Voûte, étagère 0074',
-                'culture' => 'fr',
-                'informationObjectIds' => [111111, 222222],
+              'missing'  => [],
             ],
             [
-                'legacyId' => null,
-                'name' => 'DJ002',
-                'typeId' => 2,
-                'location' => 'Aisle 25, Shelf D',
-                'culture' => 'en',
-                'informationObjectIds' => [333333],
+              'missing'  => [124 => 1],
             ],
             [
-                'legacyId' => null,
-                'name' => 'DJ003',
-                'typeId' => null,
-                'location' => 'Aisle 11, Shelf J',
-                'culture' => 'en',
-                'informationObjectIds' => [],
-            ],
-            [
-                'legacyId' => null,
-                'name' => 'DJ004',
-                'typeId' => null,
-                'location' => null,
-                'culture' => 'en',
-                'informationObjectIds' => [],
+              'missing'  => [123 => 1],
             ],
         ];
 
@@ -188,10 +157,8 @@ class CsvImportAuditerTest extends \PHPUnit\Framework\TestCase
             [$inputs[0], $expectedResults[0]],
             [$inputs[1], $expectedResults[1]],
             [$inputs[2], $expectedResults[2]],
-            [$inputs[3], $expectedResults[3]],
         ];
     }
-    */
 
     // Tests
 
@@ -438,33 +405,64 @@ class CsvImportAuditerTest extends \PHPUnit\Framework\TestCase
     }
     */
 
-    /*
-    
-    @dataProvider processRowProvider
-   
-    @param mixed $data
-    @param mixed $expectedResult
-
+    /**
+     * @dataProvider processRowProvider
+     *
+     * @param mixed $data
+     * @param mixed $expectedResult
+     */
     public function testProcessRow($data, $expectedResult)
     {
-        $importer = new PhysicalObjectCsvImporter(
+        $auditer = new CsvImportAuditer(
             $this->context,
             $this->vdbcon,
-            ['defaultCulture' => 'en']
         );
-        $importer->typeIdLookupTable = $this->typeIdLookupTableFixture;
-        $importer->setOrmClasses($this->ormClasses);
-        $importer->setOption('quiet', true);
+        $auditer->setOrmClasses($this->ormClasses);
+        $auditer->setSourceName($data['source']);
 
-        $result = $importer->processRow($data);
+        $result = $auditer->processRow($data['row']);
 
-        // assertSame returns an error if array order is no the same
-        ksort($expectedResult);
-        ksort($result);
-
-        $this->assertSame($expectedResult, $result);
+        $this->assertSame($auditer->getMissingIds(), $expectedResult['missing']);
     }
 
+    public function testProcessRowThrowsExceptionIfBadLegacyIdColumnn()
+    {
+        $this->expectException(UnexpectedValueException::class);
+
+        $row = [
+            'id' => '123',
+        ];
+
+        $auditer = new CsvImportAuditer(
+            $this->context,
+            $this->vdbcon,
+        );
+        $auditer->setOrmClasses($this->ormClasses);
+        $auditer->setSourceName('test_import');
+
+        $result = $auditer->processRow($row);
+    }
+
+    public function testProcessRowCustomIdColumnn()
+    {
+        $row = [
+            'id' => '123',
+        ];
+
+        $auditer = new CsvImportAuditer(
+            $this->context,
+            $this->vdbcon,
+            ['idColumnName' => 'id']
+        );
+        $auditer->setOrmClasses($this->ormClasses);
+        $auditer->setSourceName('test_import');
+
+        $result = $auditer->processRow($row);
+
+        $this->assertSame($auditer->getMissingIds(), []);
+    }
+
+    /*
     public function testProcessRowThrowsExceptionIfNoNameOrLocation()
     {
         $this->expectException(UnexpectedValueException::class);

@@ -30,4 +30,18 @@ class QubitKeymap
     {
         return \QubitQuery::create();
     }
+
+    static function getTargetId($sourceName, $sourceId)
+    {
+      $keymap = [
+        'test_import' => ['123' => '567']
+      ];
+
+      if (isset($keymap[$sourceName]) && isset($keymap[$sourceName][$sourceId]))
+      {
+        return $keymap[$sourceName][$sourceId];
+      }
+
+      return false;
+    }
 }
