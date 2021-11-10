@@ -288,20 +288,6 @@ class CsvImportAuditer
     // Protected methods
     //
 
-    protected function updateInfoObjRelations($physobj, $informationObjectIds)
-    {
-        $timer->startTimer('updateInfObjRelations');
-
-        // Update the search index of related information objects
-        $physobj->indexOnSave = $this->getOption('updateSearchIndex');
-
-        if (isset($updates['informationObjectIds'])) {
-            $physobj->updateInfobjRelations($informationObjectIds);
-        }
-
-        $timer->add();
-    }
-
     protected function log($msg)
     {
         echo $msg.PHP_EOL;
