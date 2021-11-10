@@ -190,6 +190,25 @@ class CsvImportAuditerTest extends \PHPUnit\Framework\TestCase
         $auditer->foo = 'blah';
     }
 
+    public function testSetAndGetSourceName()
+    {
+        $auditer = new CsvImportAuditer($this->context, $this->vdbcon);
+
+        $auditer->setSourceName('some_import');
+        $this->assertSame('some_import', $auditer->getSourceName());
+    }
+
+    /*
+# Need virtual filesystem thing?
+    public function testSetAndGetFilename()
+    {
+        $auditer = new CsvImportAuditer($this->context, $this->vdbcon);
+
+        $auditer->setFileName('some_name.csv');
+        $this->assertSame('some_name.csv', $auditer->getFileName());
+    }
+    */
+
     public function testSetFilenameFileNotFoundException()
     {
         $this->expectException(sfException::class);

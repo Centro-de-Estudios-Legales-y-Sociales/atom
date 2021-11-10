@@ -111,6 +111,11 @@ class CsvImportAuditer
         $this->sourceName = $sourceName;
     }
 
+    public function getSourceName()
+    {
+        return $this->sourceName;
+    }
+
     public function setFilename($filename)
     {
         $this->filename = $this->validateFilename($filename);
