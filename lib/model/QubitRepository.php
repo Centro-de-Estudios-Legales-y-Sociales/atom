@@ -94,25 +94,41 @@ class QubitRepository extends BaseRepository
 
     public function save($connection = null)
     {
+        // Check if the authorizedFormOfName or identifier has been modified.
+        $updateDescendantsNeeded = $this->getFieldsUpdated(
+            QubitActorI18n::TABLE_NAME,
+            ['authorizedFormOfName' => 'authorized_form_of_name'],
+            ['authorizedFormOfName' => $this->getAuthorizedFormOfName()],
+            true
+        )
+        || $this->getFieldsUpdated(
+            QubitRepository::TABLE_NAME,
+            ['identifier' => 'identifier'],
+            ['identifier' => $this->identifier]
+        );
+
         parent::save($connection);
 
         if ($this->indexOnSave) {
-            $this->updateSearchIndex();
+            $this->updateSearchIndex($updateDescendantsNeeded);
         }
 
         return $this;
     }
 
-    public function updateSearchIndex()
+    public function updateSearchIndex(bool $updateDescendantsNeeded = true)
     {
         QubitSearch::getInstance()->update($this);
 
         // Trigger updating of associated information objects, if any
-        $operationDescription = sfContext::getInstance()->i18n->__('updated');
-        $this->updateInformationObjects(
-            $this->getRelatedInformationObjectIds(),
-            $operationDescription
-        );
+        if ($updateDescendantsNeeded) {
+            $operationDescription = sfContext::getInstance()->i18n->__('updated');
+
+            $this->updateInformationObjects(
+                $this->getRelatedInformationObjectIds(),
+                $operationDescription
+            );
+        }
 
         // Remove adv. search repository options from cache
         QubitCache::getInstance()->removePattern('search:list-of-repositories:*');
@@ -502,8 +518,8 @@ class QubitRepository extends BaseRepository
      * have the specified field set, iterate over all contacts and return
      * the first one that has the field set.
      *
-     * @param  $getFunction  The get function for the field we want to return.
-     *                       e.g. getFromPrimaryOrFirstValidContact('getCity')
+     * @param       $getFunction The get function for the field we want to return.
+     *                           e.g. getFromPrimaryOrFirstValidContact('getCity')
      * @param mixed $options
      *
      * @return mixed Returns the field if found, null otherwise
